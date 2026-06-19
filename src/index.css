@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-white text-gray-900 font-sans;
+    overflow-x: hidden;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .section-padding {
+    @apply py-20 lg:py-24 px-4 sm:px-6 lg:px-8;
+  }
+
+  .container-main {
+    @apply max-w-7xl mx-auto;
+  }
+
+  .section-label {
+    @apply text-am-orange font-semibold uppercase text-xs tracking-[0.15em];
+  }
+
+  .section-divider {
+    @apply w-12 h-0.5 bg-am-orange mt-3 mb-6;
+  }
+
+  .diagonal-separator {
+    @apply relative;
+  }
+
+  .diagonal-separator::after {
+    content: '';
+    position: absolute;
+    bottom: -30px;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: inherit;
+    clip-path: polygon(0 0, 100% 0, 100% 40%, 0 100%);
+    z-index: 1;
+  }
+
+  /* Animation base classes */
+  .animate-on-scroll {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .animate-on-scroll.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .animate-slide-right {
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+
+  .animate-slide-right.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .animate-slide-left {
+    opacity: 0;
+    transform: translateX(-40px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+
+  .animate-slide-left.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .animate-scale {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  }
+
+  .animate-scale.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0A0A0A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #F97316;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #EA580C;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-on-scroll,
+  .animate-slide-right,
+  .animate-slide-left,
+  .animate-scale {
+    opacity: 1;
+    transform: none;
+  }
+}
