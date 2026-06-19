@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import emailjs from '@emailjs/browser';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import SectionLabel from '../ui/SectionLabel';
 import Button from '../ui/Button';
@@ -22,12 +23,21 @@ const seals = [
 
 export default function VamosTrabalharJuntos() {
   const { ref, isVisible } = useIntersectionObserver({ threshold: 0.1 });
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [message, setMessage] = useState('');
+  const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [messageError, setMessageError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState({ visible: false, type: 'success' as const, message: '' });
+  const [toast, setToast] = useState<{ visible: boolean; type: 'success' | 'error'; message: string }>({ visible: false, type: 'success', message: '' });
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    if (nameError) setNameError('');
+  };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(formatPhone(e.target.value));
@@ -39,11 +49,20 @@ export default function VamosTrabalharJuntos() {
     if (emailError) setEmailError('');
   };
 
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    if (messageError) setMessageError('');
+  };
+
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       let hasError = false;
 
+      if (!name.trim()) {
+        setNameError('Por favor, insira seu nome.');
+        hasError = true;
+      }
       if (!isValidEmail(email)) {
         setEmailError('Por favor, insira um e-mail válido.');
         hasError = true;
@@ -52,18 +71,41 @@ export default function VamosTrabalharJuntos() {
         setPhoneError('Por favor, insira um telefone válido.');
         hasError = true;
       }
+      if (!message.trim()) {
+        setMessageError('Por favor, insira uma mensagem.');
+        hasError = true;
+      }
 
       if (hasError) return;
 
       setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
+      
+      try {
+        await emailjs.send(
+          import.meta.env.VITE_EMAILJS_SERVICE_ID || '',
+          import.meta.env.VITE_EMAILJS_TEMPLATE_ID || '',
+          {
+            name: name,
+            email: email,
+            phone: phone,
+            message: message,
+          },
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY || ''
+        );
+
+        setName('');
         setEmail('');
         setPhone('');
+        setMessage('');
         setToast({ visible: true, type: 'success', message: 'Solicitação enviada com sucesso! Entraremos em contato em breve.' });
-      }, 1500);
+      } catch (error) {
+        console.error('Erro ao enviar email:', error);
+        setToast({ visible: true, type: 'error', message: 'Ocorreu um erro ao enviar sua solicitação. Tente novamente mais tarde.' });
+      } finally {
+        setLoading(false);
+      }
     },
-    [email, phone]
+    [name, email, phone, message]
   );
 
   return (
@@ -140,6 +182,25 @@ export default function VamosTrabalharJuntos() {
 
                 <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                   <div>
+                    <label htmlFor="contact-name" className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                      Nome
+                    </label>
+                    <input
+                      id="contact-name"
+                      type="text"
+                      value={name}
+                      onChange={handleNameChange}
+                      placeholder="Seu nome completo"
+                      className={`w-full px-4 py-3 rounded-lg border text-sm bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-am-orange focus:border-transparent
+                        ${nameError ? 'border-red-400' : 'border-gray-300 hover:border-gray-400'}`}
+                      aria-describedby={nameError ? 'name-error' : undefined}
+                    />
+                    {nameError && (
+                      <p id="name-error" className="text-red-500 text-xs mt-1">{nameError}</p>
+                    )}
+                  </div>
+
+                  <div>
                     <label htmlFor="contact-email" className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
                       E-mail
                     </label>
@@ -174,6 +235,25 @@ export default function VamosTrabalharJuntos() {
                     />
                     {phoneError && (
                       <p id="phone-error" className="text-red-500 text-xs mt-1">{phoneError}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label htmlFor="contact-message" className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                      Mensagem
+                    </label>
+                    <textarea
+                      id="contact-message"
+                      value={message}
+                      onChange={handleMessageChange}
+                      placeholder="Como podemos te ajudar?"
+                      rows={4}
+                      className={`w-full px-4 py-3 rounded-lg border text-sm bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-am-orange focus:border-transparent resize-none
+                        ${messageError ? 'border-red-400' : 'border-gray-300 hover:border-gray-400'}`}
+                      aria-describedby={messageError ? 'message-error' : undefined}
+                    />
+                    {messageError && (
+                      <p id="message-error" className="text-red-500 text-xs mt-1">{messageError}</p>
                     )}
                   </div>
 
