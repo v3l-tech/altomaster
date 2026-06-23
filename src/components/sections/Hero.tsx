@@ -1,26 +1,6 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Button from '../ui/Button';
 import heroVideo from '../../assets/videos/altomaster-hero_202606221838.mp4';
-
-/** Quickly grab just the first frame from the video (single seek to t=0) */
-async function extractFirstFrame(videoSrc: string): Promise<ImageBitmap> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'auto';
-    video.src = videoSrc;
-    video.addEventListener('error', () => reject(new Error('Video load error')));
-    video.addEventListener('loadeddata', () => {
-      const c = document.createElement('canvas');
-      c.width = video.videoWidth;
-      c.height = video.videoHeight;
-      const ctx = c.getContext('2d')!;
-      ctx.drawImage(video, 0, 0, c.width, c.height);
-      createImageBitmap(c).then(resolve).catch(reject);
-    }, { once: true });
-  });
-}
 
 const pillars = [
   {
@@ -58,178 +38,24 @@ const pillars = [
   },
 ];
 
-/**
- * Extract all frames from a video into ImageBitmap objects.
- * Uses requestVideoFrameCallback + fast playback for speed (sequential
- * decoding is 10-20x faster than random seeking). Falls back to seek-based
- * extraction at lower FPS if the API is unavailable.
- */
-async function extractFrames(videoSrc: string): Promise<ImageBitmap[]> {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'auto';
-    video.src = videoSrc;
-
-    video.addEventListener('error', () => reject(new Error('Video load error')));
-
-    video.addEventListener('canplaythrough', async () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d')!;
-      const frames: ImageBitmap[] = [];
-      const duration = video.duration;
-
-      // Fast path: play at high speed and capture every decoded frame
-      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
-        video.playbackRate = 16;
-
-        await new Promise<void>((res) => {
-          const capture = () => {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            createImageBitmap(canvas).then((bitmap) => {
-              frames.push(bitmap);
-              if (!video.ended && video.currentTime < duration - 0.03) {
-                (video as any).requestVideoFrameCallback(capture);
-              } else {
-                video.pause();
-                res();
-              }
-            });
-          };
-          (video as any).requestVideoFrameCallback(capture);
-          video.play().catch(() => { /* autoplay blocked — fall through */ });
-        });
-
-        if (frames.length > 0) {
-          resolve(frames);
-          return;
-        }
-      }
-
-      // Slow fallback: seek frame by frame at reduced FPS
-      const FALLBACK_FPS = 15;
-      const totalFrames = Math.ceil(duration * FALLBACK_FPS);
-      const interval = 1 / FALLBACK_FPS;
-
-      for (let i = 0; i < totalFrames; i++) {
-        video.currentTime = Math.min(i * interval, duration);
-        await new Promise<void>((res) => {
-          video.addEventListener('seeked', () => res(), { once: true });
-        });
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const bitmap = await createImageBitmap(canvas);
-        frames.push(bitmap);
-      }
-
-      resolve(frames);
-    }, { once: true });
-  });
-}
-
 
 export default function Hero() {
   const [loaded, setLoaded] = useState(false);
-  const sectionRef = useRef<HTMLElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const framesRef = useRef<ImageBitmap[]>([]);
-  const rafRef = useRef<number>(0);
-  const lastFrameIdx = useRef<number>(-1);
-  const [firstFrameReady, setFirstFrameReady] = useState(false);
-  const [framesReady, setFramesReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setLoaded(true);
   }, []);
 
-  // Step 1: grab first frame ASAP for instant placeholder
-  useEffect(() => {
-    let cancelled = false;
-    extractFirstFrame(heroVideo).then((bitmap) => {
-      if (cancelled) return;
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.drawImage(bitmap, 0, 0);
-        setFirstFrameReady(true);
+  const handleVideoClick = () => {
+    if (videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => {});
+      } else {
+        videoRef.current.pause();
       }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  // Step 2: extract all frames in background
-  useEffect(() => {
-    let cancelled = false;
-    extractFrames(heroVideo).then((frames) => {
-      if (cancelled) return;
-      framesRef.current = frames;
-      setFramesReady(true);
-      // Paint current scroll position
-      const canvas = canvasRef.current;
-      if (canvas && frames.length > 0) {
-        canvas.width = frames[0].width;
-        canvas.height = frames[0].height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.drawImage(frames[0], 0, 0);
-      }
-    }).catch((err) => {
-      console.warn('Frame extraction failed, falling back to poster image', err);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  // Scroll-driven frame painting
-  useEffect(() => {
-    if (!framesReady) return;
-    const frames = framesRef.current;
-    if (frames.length === 0) return;
-
-    const handleScroll = () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-
-      rafRef.current = requestAnimationFrame(() => {
-        const section = sectionRef.current;
-        const canvas = canvasRef.current;
-        if (!section || !canvas) return;
-
-        const rect = section.getBoundingClientRect();
-        const sectionHeight = section.offsetHeight;
-        const viewportHeight = window.innerHeight;
-
-        const scrollableDistance = sectionHeight - viewportHeight;
-        if (scrollableDistance <= 0) return;
-
-        const scrolled = -rect.top;
-        const progress = Math.max(0, Math.min(1, scrolled / scrollableDistance));
-
-        const frameIndex = Math.min(
-          Math.floor(progress * frames.length),
-          frames.length - 1
-        );
-
-        // Only repaint if frame actually changed
-        if (frameIndex !== lastFrameIdx.current) {
-          lastFrameIdx.current = frameIndex;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(frames[frameIndex], 0, 0);
-          }
-        }
-      });
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [framesReady]);
+    }
+  };
 
   const handleScrollTo = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>, anchor: string) => {
@@ -247,18 +73,14 @@ export default function Hero() {
   return (
     <section
       id="hero"
-      ref={sectionRef}
-      className="relative"
-      style={{ height: '250vh' }}
+      className="relative min-h-screen flex flex-col"
     >
       {/* Skip link */}
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-20 focus:left-4 focus:bg-am-orange focus:text-white focus:px-4 focus:py-2 focus:rounded focus:z-[60]">
         Pular para o conteúdo principal
       </a>
 
-      {/* Sticky container that stays on screen while scrolling through the tall section */}
-      <div className="sticky top-0 h-screen flex flex-col">
-        <div id="main-content" className="flex-1 flex flex-col lg:flex-row">
+      <div id="main-content" className="flex-1 flex flex-col lg:flex-row">
           {/* Left - White content */}
           <div className="relative flex-1 lg:w-[55%] bg-white flex items-center z-10">
             <div className="w-full max-w-2xl mx-auto lg:ml-auto lg:mr-12 xl:mr-24 px-6 sm:px-10 lg:px-16 py-32 lg:py-20">
@@ -350,29 +172,20 @@ export default function Hero() {
               />
               {/* Canvas Container with offset to reveal the orange stripe */}
               <div
-                className="absolute inset-0 ml-3 lg:ml-4"
+                className="absolute inset-0 ml-3 lg:ml-4 pointer-events-auto cursor-pointer group"
                 style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0 100%)' }}
+                onClick={handleVideoClick}
               >
-                {/* Canvas always visible — first frame is drawn instantly */}
-                <canvas
-                  ref={canvasRef}
+                {/* Looping Video Background */}
+                <video
+                  ref={videoRef}
+                  src={heroVideo}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
                   className="absolute inset-0 w-full h-full object-cover"
-                  style={{ objectFit: 'cover' }}
-                  aria-hidden="true"
                 />
-                {/* Shimmer / pulse overlay while frames are loading */}
-                <div
-                  className={`absolute inset-0 transition-opacity duration-700 ${
-                    framesReady ? 'opacity-0 pointer-events-none' : 'opacity-100'
-                  }`}
-                >
-                  <div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                    style={{
-                      animation: firstFrameReady && !framesReady ? 'shimmer 1.5s ease-in-out infinite' : 'none',
-                    }}
-                  />
-                </div>
                 {/* Gradient overlay to match palette */}
                 <div className="absolute inset-0 bg-gradient-to-br from-[#1a0a00]/50 via-[#2d1500]/40 to-am-black/80 mix-blend-multiply" />
               </div>
@@ -401,7 +214,6 @@ export default function Hero() {
             </div>
           </div>
         </div>
-      </div>
     </section>
   );
 }
