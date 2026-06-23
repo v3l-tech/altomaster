@@ -12,6 +12,7 @@ const pins: MapPin[] = [
   { x: 90000, y: 80000, label: 'SORRISO – MT', type: 'existing' }, // roughly center MT
   { x: 98000, y: 128000, label: 'CAMPO GRANDE – MS', type: 'expansion' }, // roughly center MS
   { x: 112000, y: 130000, label: 'TRÊS LAGOAS – MS', type: 'expansion' }, // roughly east MS
+  { x: 97000, y: 140000, label: 'DOURADOS – MS', type: 'expansion' }, // roughly south of Campo Grande
 ];
 
 export default function MapSVG() {
@@ -57,6 +58,15 @@ export default function MapSVG() {
           />
           <path
             d={`M98000,128000 L112000,130000`}
+            fill="none"
+            stroke="#3B82F6"
+            strokeWidth="500"
+            strokeDasharray="1500 1500"
+            opacity="0.5"
+            className={`transition-all duration-1500 ${isVisible ? 'opacity-50' : 'opacity-0'}`}
+          />
+          <path
+            d={`M98000,128000 L97000,140000`}
             fill="none"
             stroke="#3B82F6"
             strokeWidth="500"

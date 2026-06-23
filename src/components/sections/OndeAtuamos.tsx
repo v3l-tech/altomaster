@@ -13,6 +13,7 @@ const legendItems = [
   { color: 'bg-am-orange', label: 'Sorriso – MT (Sede)', detail: 'Av. Idemar Riedi, 12032 – Bairro Industrial, CEP 78897-066' },
   { color: 'bg-blue-500', label: 'Campo Grande – MS', detail: 'Rua Marlene, 275 – CEP 79022-030' },
   { color: 'bg-blue-500', label: 'Três Lagoas – MS', detail: 'Rua Crispim Coimbra, 1043 – CEP 79641-050' },
+  { color: 'bg-blue-500', label: 'Dourados – MS', detail: 'Rua das Amoreiras, 805 – CEP 79839-030' },
 ];
 
 const differentials = [
