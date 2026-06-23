@@ -22,7 +22,7 @@ export default function Navbar({ currentPage }: NavbarProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
   const isScrolled = scrollY > 80;
-  const isPastHero = scrollY > window.innerHeight - 72;
+  const isPastHero = scrollY > (document.getElementById('hero')?.offsetHeight ?? window.innerHeight) - 72;
 
   // Lock body scroll when drawer is open
   useEffect(() => {
