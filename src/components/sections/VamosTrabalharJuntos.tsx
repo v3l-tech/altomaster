@@ -171,8 +171,8 @@ export default function VamosTrabalharJuntos() {
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm font-semibold">(66) 9911-8182</p>
-                      <p className="text-[11px] text-am-muted">WhatsApp</p>
+                      <p className="text-sm font-semibold">(66) 9911-8182 | (67) 9607-8979</p>
+                      <p className="text-[11px] text-am-muted">WhatsApp / Telefone</p>
                     </div>
                   </a>
                   {/* Email */}
